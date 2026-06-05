@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HatcheryOS — Hatchery Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f0f2f0;
+    --surface: #ffffff;
+    --surface2: #f7f8f7;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.15);
+    --text: #1a1f1a;
+    --text-2: #5a6b5a;
+    --text-3: #8a9b8a;
+    --accent: #1a6b3c;
+    --accent-light: #e8f5ee;
+    --accent-mid: #2d9e5f;
+    --warn: #b85c00;
+    --warn-bg: #fff4e8;
+    --danger: #c0392b;
+    --danger-bg: #fdf0ee;
+    --info: #1a4a8a;
+    --info-bg: #eef3fb;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .app-shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--accent);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .sidebar-logo .logo-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.3px;
+  }
+  .sidebar-logo .logo-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 1px;
+  }
+
+  .sidebar-section {
+    padding: 14px 10px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 14px;
+    margin: 1px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: rgba(255,255,255,0.7);
+    font-size: 13.5px;
+    font-weight: 400;
+    transition: background 0.15s, color 0.15s;
+    border: none;
+    background: none;
+    width: calc(100% - 16px);
+    text-align: left;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .nav-item.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 500; }
+  .nav-icon { width: 16px; height: 16px; opacity: 0.85; flex-shrink: 0; }
+
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar-title { font-size: 16px; font-weight: 600; color: var(--text); flex: 1; }
+  .topbar select {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .topbar .period-btns { display: flex; gap: 4px; }
+  .period-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    padding: 5px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+  }
+  .period-btn.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); font-weight: 500; }
+
+  .page { display: none; padding: 20px 24px; }
+  .page.active { display: block; }
+
+  /* ── Components ── */
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .metric-card .label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; margin-bottom: 6px; }
+  .metric-card .value { font-size: 26px; font-weight: 600; color: var(--text); line-height: 1; }
+  .metric-card .sub { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+  .metric-card.accent { background: var(--accent); border-color: var(--accent); }
+  .metric-card.accent .label, .metric-card.accent .value, .metric-card.accent .sub { color: #fff; }
+  .metric-card.accent .label { color: rgba(255,255,255,0.65); }
+  .metric-card.accent .sub { color: rgba(255,255,255,0.65); }
+  .metric-card.warn { border-left: 3px solid var(--warn); }
+  .metric-card.warn .value { color: var(--warn); }
+  .metric-card.danger { border-left: 3px solid var(--danger); }
+  .metric-card.danger .value { color: var(--danger); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .card-head-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .card-body { padding: 16px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  /* ── Tables ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover td { background: var(--surface2); }
+  .data-table th.sortable { cursor: pointer; user-select: none; }
+  .data-table th.sortable:hover { color: var(--accent); }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .badge-ok { background: #e8f5ee; color: #1a6b3c; }
+  .badge-low { background: #fff4e8; color: #b85c00; }
+  .badge-out { background: #fdf0ee; color: #c0392b; }
+  .badge-new { background: #eef3fb; color: #1a4a8a; }
+  .badge-warn { background: #fff4e8; color: #b85c00; }
+  .badge-good { background: #e8f5ee; color: #1a6b3c; }
+  .badge-attn { background: #fdf0ee; color: #c0392b; }
+  .badge-rest { background: #f0f0f0; color: #5a6b5a; }
+
+  /* ── Buttons ── */
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--surface2); }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: #155c33; }
+  .btn-sm { font-size: 12px; padding: 4px 10px; }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+  /* ── Forms ── */
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 5px; }
+  .form-input {
+    width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid .span2 { grid-column: span 2; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { font-size: 15px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 20px; color: var(--text-3); cursor: pointer; line-height: 1; }
+  .modal-body { padding: 20px; }
+  .modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* ── Alerts ── */
+  .alert-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 14px;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .alert-bar.warn { background: var(--warn-bg); border: 1px solid #f0c080; color: var(--warn); }
+  .alert-bar.danger { background: var(--danger-bg); border: 1px solid #f0b0b0; color: var(--danger); }
+  .alert-pill {
+    background: var(--surface);
+    border: 1px solid currentColor;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── Stock bar ── */
+  .stock-bar { width: 72px; height: 5px; background: #e8eae8; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; }
+  .stock-bar-fill { height: 100%; border-radius: 3px; }
+
+  /* ── Charts ── */
+  .chart-container { position: relative; height: 200px; }
+  .chart-legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── Donut ── */
+  .donut-wrap { display: flex; align-items: center; gap: 16px; }
+  .donut-stats .big { font-size: 28px; font-weight: 600; color: var(--text); line-height: 1; }
+  .donut-stats .sub { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+
+  /* ── Balance table ── */
+  .balance-tbl { width: 100%; font-size: 13px; }
+  .balance-tbl tr td { padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .balance-tbl tr:last-child td { border-bottom: none; font-weight: 600; }
+  .balance-tbl td:last-child { text-align: right; font-weight: 500; }
+  .balance-tbl .lbl { color: var(--text-2); }
+
+  /* ── Mortality bars ── */
+  .mort-bar-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .mort-label { font-size: 12px; color: var(--text-2); min-width: 120px; }
+  .mort-track { flex: 1; height: 5px; background: #e8eae8; border-radius: 3px; overflow: hidden; }
+  .mort-fill { height: 100%; border-radius: 3px; background: var(--danger); }
+  .mort-pct { font-size: 12px; font-weight: 500; min-width: 32px; text-align: right; }
+
+  /* ── Transactions ── */
+  .txn-item { display: flex; align-items: center; gap: 12px; padding: 9px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .txn-item:last-child { border-bottom: none; }
+  .txn-date { color: var(--text-3); min-width: 82px; font-size: 12px; }
+  .txn-name { flex: 1; color: var(--text); }
+  .txn-qty-in { color: var(--accent); font-weight: 600; min-width: 70px; text-align: right; }
+  .txn-qty-out { color: var(--danger); font-weight: 600; min-width: 70px; text-align: right; }
+  .txn-note { color: var(--text-3); font-size: 12px; min-width: 140px; text-align: right; }
+
+  /* ── Cost report ── */
+  .cost-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .cost-row:last-child { border-bottom: none; }
+  .cost-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cost-label { flex: 1; font-size: 13px; }
+  .cost-bar-track { width: 80px; height: 5px; background: #e8eae8; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+  .cost-bar-fill { height: 100%; border-radius: 3px; }
+  .cost-amount { font-size: 13px; font-weight: 600; min-width: 70px; text-align: right; }
+  .cost-pct { font-size: 12px; color: var(--text-3); min-width: 34px; text-align: right; }
+
+  /* ── Toolbar ── */
+  .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar input[type=text] {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    flex: 1;
+    min-width: 160px;
+  }
+  .toolbar select {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  /* ── Feed row ── */
+  .feed-input-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 6px; align-items: end; margin-bottom: 8px; }
+  .other-input-row { display: grid; grid-template-columns: 2fr 1fr auto; gap: 6px; align-items: end; margin-bottom: 8px; }
+  .rm-btn { background: none; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); color: var(--text-3); cursor: pointer; padding: 7px 8px; font-size: 13px; line-height: 1; }
+  .rm-btn:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .sidebar { width: 56px; }
+    .sidebar-logo .logo-name, .sidebar-logo .logo-sub, .nav-item span, .sidebar-section { display: none; }
+    .nav-item { justify-content: center; padding: 10px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid .span2 { grid-column: span 1; }
+    .feed-input-row { grid-template-columns: 1fr 1fr; }
+    .other-input-row { grid-template-columns: 1fr; }
+  }
+
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin: 18px 0 8px; }
+
+  .coming-soon {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-3);
+  }
+  .coming-soon .cs-title { font-size: 16px; font-weight: 600; color: var(--text-2); margin-bottom: 8px; }
+  .coming-soon .cs-sub { font-size: 13px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-name">HatcheryOS</div>
+      <div class="logo-sub">Management System</div>
+    </div>
+
+    <div class="sidebar-section">Overview</div>
+    <button class="nav-item active" onclick="showPage('dashboard')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      <span>Dashboard</span>
+    </button>
+
+    <div class="sidebar-section">Production</div>
+    <button class="nav-item" onclick="showPage('broodstock')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>
+      <span>Broodstock</span>
+    </button>
+    <button class="nav-item" onclick="showPage('incubator')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><ellipse cx="8" cy="9" rx="5" ry="6"/><path d="M8 3V1"/><path d="M5 4L3.5 2.5"/><path d="M11 4l1.5-1.5"/></svg>
+      <span>Incubator</span>
+    </button>
+    <button class="nav-item" onclick="showPage('fish')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M1 8c2-4 6-5 9-3l3-3v6l-3-3c-3 2-7 1-9 3z"/></svg>
+      <span>Fish / larvae</span>
+    </button>
+
+    <div class="sidebar-section">Live feed</div>
+    <button class="nav-item" onclick="showPage('algae')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M8 14V6"/><path d="M4 10c0-2 4-4 4-4s4 2 4 4"/><path d="M2 14h12"/></svg>
+      <span>Algae</span>
+    </button>
+    <button class="nav-item" onclick="showPage('rotifers')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
+      <span>Rotifers</span>
+    </button>
+    <button class="nav-item" onclick="showPage('artemia')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M8 2l1.5 3h3l-2.5 2 1 3L8 8.5 5 10l1-3L3.5 5h3z"/></svg>
+      <span>Artemia</span>
+    </button>
+
+    <div class="sidebar-section">Management</div>
+    <button class="nav-item" onclick="showPage('inventory')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="1"/><path d="M5 3V2a1 1 0 011-1h4a1 1 0 011 1v1"/><path d="M1 7h14"/></svg>
+      <span>Inventory</span>
+    </button>
+    <button class="nav-item" onclick="showPage('costaccounting')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M2 12V4l6-2 6 2v8l-6 2-6-2z"/><path d="M8 2v12"/></svg>
+      <span>Cost accounting</span>
+    </button>
+    <button class="nav-item" onclick="showPage('reports')">
+      <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M3 1h7l3 3v11H3V1z"/><path d="M10 1v3h3"/><path d="M5 7h6M5 10h4"/></svg>
+      <span>Reports</span>
+    </button>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <span class="topbar-title" id="page-title">Dashboard</span>
+      <select id="tb-hatchery"><option>All hatcheries</option><option>Main hatchery</option></select>
+      <select id="tb-species"><option>All species</option><option>Barramundi</option><option>Snapper</option><option>Mulloway</option></select>
+      <div class="period-btns">
+        <button class="period-btn" onclick="setPeriod(this,'7d')">7 days</button>
+        <button class="period-btn active" onclick="setPeriod(this,'6m')">6 months</button>
+        <button class="period-btn" onclick="setPeriod(this,'12m')">12 months</button>
+        <button class="period-btn" onclick="setPeriod(this,'custom')">Custom</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ DASHBOARD ═══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="metrics-grid">
+        <div class="metric-card accent">
+          <div class="label">Active tanks</div>
+          <div class="value">6</div>
+          <div class="sub">2.4M larvae total</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Avg survival</div>
+          <div class="value">74%</div>
+          <div class="sub">↑ 3% vs last week</div>
+        </div>
+        <div class="metric-card warn">
+          <div class="label">Reorder alerts</div>
+          <div class="value">4</div>
+          <div class="sub">items need attention</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Broodstock</div>
+          <div class="value">48</div>
+          <div class="sub">12 spawning</div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Stocked / total eggs %</span></div>
+          <div class="card-body">
+            <div class="donut-wrap">
+              <canvas id="d1" width="80" height="80"></canvas>
+              <div class="donut-stats">
+                <div class="big">76%</div>
+                <div class="sub">3.8M of 5M eggs</div>
+                <div class="chart-legend" style="margin-top:8px;">
+                  <div class="legend-item"><div class="legend-dot" style="background:#1a6b3c;"></div>Stocked</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#e8eae8;"></div>Remaining</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Scrapped / total eggs %</span></div>
+          <div class="card-body">
+            <div class="donut-wrap">
+              <canvas id="d2" width="80" height="80"></canvas>
+              <div class="donut-stats">
+                <div class="big">8%</div>
+                <div class="sub">400k of 5M eggs</div>
+                <div class="chart-legend" style="margin-top:8px;">
+                  <div class="legend-item"><div class="legend-dot" style="background:#b85c00;"></div>Scrapped</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#e8eae8;"></div>Remaining</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Dead / total eggs %</span></div>
+          <div class="card-body">
+            <div class="donut-wrap">
+              <canvas id="d3" width="80" height="80"></canvas>
+              <div class="donut-stats">
+                <div class="big">16%</div>
+                <div class="sub">800k of 5M eggs</div>
+                <div class="chart-legend" style="margin-top:8px;">
+                  <div class="legend-item"><div class="legend-dot" style="background:#c0392b;"></div>Dead</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:#e8eae8;"></div>Remaining</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Broodstock eggs (thousands)</span></div>
+          <div class="card-body">
+            <div class="chart-container"><canvas id="eggChart"></canvas></div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-sq" style="background:#1a6b3c;"></div>Stocked</div>
+              <div class="legend-item"><div class="legend-sq" style="background:#c0392b;"></div>Dead</div>
+              <div class="legend-item"><div class="legend-sq" style="background:#b85c00;"></div>Scrapped</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Balance — current period</span></div>
+          <div class="card-body">
+            <table class="balance-tbl">
+              <tr><td class="lbl">Start (#)</td><td>1,200,000</td></tr>
+              <tr><td class="lbl">Input (#)</td><td>500,000</td></tr>
+              <tr><td class="lbl">Transfer in (#)</td><td>80,000</td></tr>
+              <tr><td class="lbl">Transfer out (#)</td><td>−120,000</td></tr>
+              <tr><td class="lbl">Losses (#)</td><td style="color:var(--danger);">−210,000</td></tr>
+              <tr><td class="lbl">Losses (%)</td><td style="color:var(--danger);">13%</td></tr>
+              <tr><td class="lbl">Adjustment (#)</td><td>+5,000</td></tr>
+              <tr><td class="lbl">Dispatch (#)</td><td>320,000</td></tr>
+              <tr><td class="lbl">End (#)</td><td>1,135,000</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Top 5 mortality causes</span></div>
+          <div class="card-body">
+            <div class="mort-bar-wrap"><span class="mort-label">Bacterial infection</span><div class="mort-track"><div class="mort-fill" style="width:80%;"></div></div><span class="mort-pct">32%</span></div>
+            <div class="mort-bar-wrap"><span class="mort-label">Water quality</span><div class="mort-track"><div class="mort-fill" style="width:55%;"></div></div><span class="mort-pct">22%</span></div>
+            <div class="mort-bar-wrap"><span class="mort-label">Handling stress</span><div class="mort-track"><div class="mort-fill" style="width:38%;"></div></div><span class="mort-pct">15%</span></div>
+            <div class="mort-bar-wrap"><span class="mort-label">Starvation</span><div class="mort-track"><div class="mort-fill" style="width:28%;"></div></div><span class="mort-pct">11%</span></div>
+            <div class="mort-bar-wrap"><span class="mort-label">Unknown</span><div class="mort-track"><div class="mort-fill" style="width:20%;background:var(--warn);"></div></div><span class="mort-pct">8%</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Live feed harvested</span></div>
+          <div class="card-body">
+            <div class="chart-container"><canvas id="livefeedChart"></canvas></div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#1a6b3c;"></div>Algae (L)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#c0392b;"></div>Rotifers (mil.)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#b85c00;"></div>Artemia (mil.)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-head-title">Active tanks — quick view</span>
+          <button class="btn btn-sm btn-primary" onclick="showPage('fish')">View all tanks</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr>
+              <th>Tank</th><th>Species</th><th>Age (dph)</th><th>Larvae</th><th>Survival</th><th>Last fed</th><th>Status</th>
+            </tr></thead>
+            <tbody>
+              <tr><td>T-01</td><td>Barramundi</td><td>12</td><td>410,000</td><td>82%</td><td>Today 06:00</td><td><span class="badge badge-good">Good</span></td></tr>
+              <tr><td>T-02</td><td>Barramundi</td><td>7</td><td>408,000</td><td>68%</td><td>Today 09:00</td><td><span class="badge badge-warn">Monitor</span></td></tr>
+              <tr><td>T-03</td><td>Snapper</td><td>21</td><td>316,000</td><td>79%</td><td>Today 06:30</td><td><span class="badge badge-good">Good</span></td></tr>
+              <tr><td>T-04</td><td>Snapper</td><td>5</td><td>440,000</td><td>55%</td><td>Today 09:00</td><td><span class="badge badge-attn">Attention</span></td></tr>
+              <tr><td>T-05</td><td>Mulloway</td><td>18</td><td>347,000</td><td>77%</td><td>Today 06:00</td><td><span class="badge badge-good">Good</span></td></tr>
+              <tr><td>T-06</td><td>Mulloway</td><td>3</td><td>—</td><td>—</td><td>—</td><td><span class="badge badge-new">New batch</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ INVENTORY ═══ -->
+    <div class="page" id="page-inventory">
+      <div id="inv-alerts"></div>
+
+      <div class="metrics-grid" id="inv-metrics"></div>
+
+      <div class="toolbar">
+        <input type="text" id="inv-search" placeholder="Search items, supplier..." oninput="invRender()">
+        <select id="inv-cat" onchange="invRender()">
+          <option value="all">All categories</option>
+          <option value="Live feed">Live feed</option>
+          <option value="Chemicals">Chemicals</option>
+          <option value="Enrichment">Enrichment</option>
+          <option value="Consumables">Consumables</option>
+          <option value="Medications">Medications</option>
+        </select>
+        <select id="inv-status" onchange="invRender()">
+          <option value="all">All statuses</option>
+          <option value="OK">In stock</option>
+          <option value="Low">Low stock</option>
+          <option value="Out">Out of stock</option>
+        </select>
+        <button class="btn btn-primary" onclick="openItemModal()">+ Add item</button>
+        <button class="btn" onclick="invExportCSV()">Export CSV</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-head-title">Stock list</span>
+          <span style="font-size:12px;color:var(--text-3);" id="inv-count"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="inv-table">
+            <thead><tr>
+              <th class="sortable" onclick="invSort('name')">Item</th>
+              <th class="sortable" onclick="invSort('category')">Category</th>
+              <th>Unit</th>
+              <th class="sortable" onclick="invSort('stock')">Stock</th>
+              <th>Reorder at</th>
+              <th>Level</th>
+              <th class="sortable" onclick="invSort('cost')">Cost / unit</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="inv-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="card-head-title">Recent transactions</span></div>
+        <div id="inv-txns"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ COST ACCOUNTING ═══ -->
+    <div class="page" id="page-costaccounting">
+      <div class="metrics-grid" id="cost-summary-metrics"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="card-head-title">Run details</span></div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="form-group span2"><label class="form-label">Batch / run name</label><input class="form-input" id="c-batch" type="text" value="B-2026-21 Barramundi"></div>
+              <div class="form-group"><label class="form-label">Species</label><input class="form-input" id="c-species" type="text" value="Barramundi"></div>
+              <div class="form-group"><label class="form-label">Duration (days)</label><input class="form-input" id="c-days" type="number" value="21"></div>
+              <div class="form-group"><label class="form-label">Larvae stocked</label><input class="form-input" id="c-init" type="number" value="500000"></div>
+              <div class="form-group"><label class="form-label">Juveniles out</label><input class="form-input" id="c-final" type="number" value="320000"></div>
+            </div>
+
+            <div class="section-label">Live feed & nutrition</div>
+            <div id="cost-feed-rows"></div>
+            <button class="btn btn-sm" onclick="addCostFeedRow()" style="margin-bottom:12px;">+ Add feed item</button>
+
+            <div class="section-label">Labour</div>
+            <div class="form-grid">
+              <div class="form-group"><label class="form-label">Total staff hours</label><input class="form-input" id="c-hrs" type="number" value="180"></div>
+              <div class="form-group"><label class="form-label">Avg hourly rate ($)</label><input class="form-input" id="c-rate" type="number" value="32"></div>
+            </div>
+
+            <div class="section-label">Consumables & other</div>
+            <div id="cost-other-rows"></div>
+            <button class="btn btn-sm" onclick="addCostOtherRow()" style="margin-bottom:16px;">+ Add item</button>
+
+            <button class="btn btn-primary" onclick="calcCost()" style="width:100%;">Calculate cost report</button>
+          </div>
+        </div>
+
+        <div class="card" id="cost-report-panel">
+          <div class="card-head"><span class="card-head-title">Cost report</span></div>
+          <div class="card-body" id="cost-report-body">
+            <div style="color:var(--text-3);font-size:13px;text-align:center;padding:40px 0;">Fill in the run details and click calculate to see your cost report.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ STUB PAGES ═══ -->
+    <div class="page" id="page-broodstock">
+      <div class="coming-soon">
+        <div class="cs-title">Broodstock module</div>
+        <div class="cs-sub">Individual fish records, feeding regimes, spawn tracking, conditioning logs.</div>
+        <button class="btn btn-primary" onclick="alert('Tell Claude: Build the broodstock module next!')">Coming soon — request this module</button>
+      </div>
+    </div>
+    <div class="page" id="page-incubator">
+      <div class="coming-soon">
+        <div class="cs-title">Incubator module</div>
+        <div class="cs-sub">Egg batch tracking, hatch rates, incubation conditions, scrapping logs.</div>
+        <button class="btn btn-primary" onclick="alert('Tell Claude: Build the incubator module next!')">Coming soon — request this module</button>
+      </div>
+    </div>
+    <div class="page" id="page-fish">
+      <div class="coming-soon">
+        <div class="cs-title">Fish / larvae module</div>
+        <div class="cs-sub">Tank-level tracking, daily survival, transfers, sampling, weaning.</div>
+        <button class="btn btn-primary" onclick="alert('Tell Claude: Build the fish/larvae module next!')">Coming soon — request this module</button>
+      </div>
+    </div>
+    <div class="page" id="page-algae">
+      <div class="coming-soon">
+        <div class="cs-title">Algae cultures module</div>
+        <div class="cs-sub">Species tracking, density counts, harvest volumes, feeding targets.</div>
+        <button class="btn btn-primary" onclick="alert('Tell Claude: Build the algae module next!')">Coming soon — request this module</button>
+      </div>
+    </div>
+    <div class="page" id="page-rotifers">
+      <div class="coming-soon">
+        <div class="cs-title">Rotifers module</div>
+        <div class="cs-sub">Culture density, harvest log, enrichment schedule, feeding tanks.</div>
+        <button class="btn btn-primary" onclick="alert('Tell Claude: Build the rotifers module next!')">Coming soon — request this module</button>
+      </div>
+    </div>
+    <div class="page" id="page-artemia">
+      <div class="coming-soon">
+        <div class="cs-title">Artemia module</div>
+        <div class="cs-sub">Cyst batches, hatching log, nauplii counts, enrichment, usage tracking.</div>
+        <button class="btn btn-primary" onclick="alert('Tell Claude: Build the artemia module next!')">Coming soon — request this module</button>
+      </div>
+    </div>
+    <div class="page" id="page-reports">
+      <div class="coming-soon">
+        <div class="cs-title">Reports module</div>
+        <div class="cs-sub">Larval run summaries, survival trends, batch comparisons, feed usage, exports.</div>
+        <button class="btn btn-primary" onclick="alert('Tell Claude: Build the reports module next!')">Coming soon — request this module</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Inventory item modal ── -->
+<div class="modal-overlay" id="item-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="item-modal-title">Add inventory item</h3>
+      <button class="modal-close" onclick="closeItemModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group span2"><label class="form-label">Item name</label><input class="form-input" id="im-name" type="text" placeholder="e.g. Rotifers (live culture)"></div>
+        <div class="form-group"><label class="form-label">Category</label>
+          <select class="form-input" id="im-cat">
+            <option>Live feed</option><option>Chemicals</option><option>Enrichment</option><option>Consumables</option><option>Medications</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Unit</label>
+          <select class="form-input" id="im-unit">
+            <option>L</option><option>kg</option><option>g</option><option>mL</option><option>billion cells</option><option>doses</option><option>units</option><option>cans</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Current stock</label><input class="form-input" id="im-stock" type="number" min="0" step="0.1" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Reorder threshold</label><input class="form-input" id="im-reorder" type="number" min="0" step="0.1" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Cost per unit ($)</label><input class="form-input" id="im-cost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">Supplier</label><input class="form-input" id="im-supplier" type="text" placeholder="Supplier name"></div>
+        <div class="form-group span2"><label class="form-label">Notes</label><textarea class="form-input" id="im-notes" rows="2" style="resize:vertical;" placeholder="Any notes..."></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeItemModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInvItem()">Save item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Log transaction modal ── -->
+<div class="modal-overlay" id="txn-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Log stock change</h3>
+      <button class="modal-close" onclick="closeTxnModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Item</label><input class="form-input" id="tm-name" type="text" readonly></div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Transaction type</label>
+          <select class="form-input" id="tm-type">
+            <option value="use">Use / consume</option>
+            <option value="receive">Receive stock</option>
+            <option value="adjust">Stock adjustment</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Quantity</label><input class="form-input" id="tm-qty" type="number" min="0" step="0.1" placeholder="0"></div>
+        <div class="form-group span2"><label class="form-label">Notes / batch / invoice ref</label><input class="form-input" id="tm-notes" type="text" placeholder="e.g. Used in T-01, Invoice #1234"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeTxnModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTxn()">Log change</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════════════════
+const PAGE_TITLES = {
+  dashboard:'Dashboard', broodstock:'Broodstock', incubator:'Incubator',
+  fish:'Fish / larvae', algae:'Algae cultures', rotifers:'Rotifers',
+  artemia:'Artemia', inventory:'Inventory', costaccounting:'Cost accounting', reports:'Reports'
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const page = document.getElementById('page-'+name);
+  if (page) page.classList.add('active');
+  const btn = [...document.querySelectorAll('.nav-item')].find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes("'"+name+"'"));
+  if (btn) btn.classList.add('active');
+  document.getElementById('page-title').textContent = PAGE_TITLES[name] || name;
+  if (name === 'inventory') invRender();
+  if (name === 'costaccounting') initCost();
+}
+
+function setPeriod(btn, p) {
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DASHBOARD CHARTS
+// ══════════════════════════════════════════════════════════════════
+function donut(id, pct, color) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: { datasets: [{ data: [pct, 100-pct], backgroundColor: [color, '#e8eae8'], borderWidth: 0 }] },
+    options: { cutout: '72%', plugins: { legend: { display:false }, tooltip: { enabled:false } }, animation: { duration:600 } }
+  });
+}
+
+const weeks = ['W1','W2','W3','W4','W5','W6','W7','W8'];
+
+window.addEventListener('DOMContentLoaded', () => {
+  donut('d1', 76, '#1a6b3c');
+  donut('d2', 8, '#b85c00');
+  donut('d3', 16, '#c0392b');
+
+  new Chart(document.getElementById('eggChart'), {
+    type: 'bar',
+    data: {
+      labels: weeks,
+      datasets: [
+        { label:'Stocked', data:[480,520,390,610,450,580,500,620], backgroundColor:'#1a6b3c' },
+        { label:'Dead',    data:[40,55,30,70,45,60,38,50],         backgroundColor:'#c0392b' },
+        { label:'Scrapped',data:[20,30,15,35,22,28,18,25],         backgroundColor:'#b85c00' }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ x:{ticks:{font:{size:11}}}, y:{ticks:{font:{size:11}}} } }
+  });
+
+  new Chart(document.getElementById('livefeedChart'), {
+    type: 'line',
+    data: {
+      labels: weeks,
+      datasets: [
+        { label:'Algae (L)',      data:[120,135,118,150,140,160,145,170], borderColor:'#1a6b3c', tension:0.4, pointRadius:3, fill:false },
+        { label:'Rotifers (mil.)',data:[80,85,78,92,86,94,89,98],         borderColor:'#c0392b', tension:0.4, pointRadius:3, fill:false },
+        { label:'Artemia (mil.)', data:[45,52,40,60,55,62,50,65],         borderColor:'#b85c00', tension:0.4, pointRadius:3, fill:false }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ x:{ticks:{font:{size:11}}}, y:{ticks:{font:{size:11}}} } }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+//  INVENTORY DATA
+// ══════════════════════════════════════════════════════════════════
+let invItems = [
+  {id:1, name:'Rotifers (live)',               category:'Live feed',   unit:'L',            stock:8,   reorder:10,  cost:4.80,  supplier:'AquaCulture Supplies', notes:''},
+  {id:2, name:'Artemia cysts',                 category:'Live feed',   unit:'cans',          stock:3,   reorder:5,   cost:92.00, supplier:'INVE Aquaculture',     notes:''},
+  {id:3, name:'Nannochloropsis concentrate',   category:'Live feed',   unit:'L',            stock:22,  reorder:15,  cost:18.50, supplier:'Algae Pty',            notes:''},
+  {id:4, name:'Isochrysis (T-Iso)',            category:'Live feed',   unit:'L',            stock:14,  reorder:10,  cost:22.00, supplier:'Algae Pty',            notes:''},
+  {id:5, name:'Algamac 3050',                  category:'Enrichment',  unit:'kg',           stock:1.2, reorder:2,   cost:185.00,supplier:'Aquafauna',            notes:'HUFA enrichment'},
+  {id:6, name:'DC DHA Protein Selco',          category:'Enrichment',  unit:'kg',           stock:0.8, reorder:1,   cost:210.00,supplier:'INVE Aquaculture',     notes:''},
+  {id:7, name:'Hydrogen peroxide (30%)',        category:'Chemicals',   unit:'L',            stock:0,   reorder:5,   cost:6.20,  supplier:'Chem Supplies WA',     notes:'Egg disinfection'},
+  {id:8, name:'Formalin (37%)',                category:'Chemicals',   unit:'L',            stock:9,   reorder:5,   cost:14.00, supplier:'Chem Supplies WA',     notes:''},
+  {id:9, name:'EDTA',                          category:'Chemicals',   unit:'kg',           stock:2.5, reorder:1,   cost:8.50,  supplier:'Chem Supplies WA',     notes:''},
+  {id:10,name:'Sea salt (Instant Ocean)',       category:'Chemicals',   unit:'kg',           stock:80,  reorder:25,  cost:1.20,  supplier:'Petspares',            notes:''},
+  {id:11,name:'Oxytetracycline',               category:'Medications', unit:'g',            stock:45,  reorder:50,  cost:3.20,  supplier:'Vetafarm',             notes:'Prescription required'},
+  {id:12,name:'Tricaine (MS-222)',             category:'Medications', unit:'g',            stock:120, reorder:50,  cost:5.80,  supplier:'Vetafarm',             notes:''},
+  {id:13,name:'Air stones (large)',            category:'Consumables', unit:'units',         stock:14,  reorder:20,  cost:2.10,  supplier:'Aquarium supplies',    notes:''},
+  {id:14,name:'Banjo filters',                 category:'Consumables', unit:'units',         stock:6,   reorder:10,  cost:4.50,  supplier:'Aquarium supplies',    notes:''},
+  {id:15,name:'Micro-sieve 53µm',             category:'Consumables', unit:'units',         stock:2,   reorder:4,   cost:38.00, supplier:'Endress+Hauser',       notes:''},
+  {id:16,name:'DO probe membrane kits',        category:'Consumables', unit:'units',         stock:8,   reorder:5,   cost:22.00, supplier:'YSI',                  notes:''},
+];
+
+let invTxns = [
+  {date:'2026-05-04', item:'Rotifers (live)',            type:'use',     qty:2,   notes:'T-01 morning feed'},
+  {date:'2026-05-04', item:'Artemia cysts',              type:'use',     qty:1,   notes:'T-03 weaning'},
+  {date:'2026-05-03', item:'Nannochloropsis concentrate',type:'receive', qty:10,  notes:'Invoice #4821'},
+  {date:'2026-05-03', item:'Hydrogen peroxide (30%)',     type:'use',     qty:1,   notes:'Egg batch B-24 disinfection'},
+  {date:'2026-05-02', item:'Algamac 3050',               type:'use',     qty:0.3, notes:'Rotifer enrichment'},
+  {date:'2026-05-02', item:'Air stones (large)',          type:'use',     qty:2,   notes:'T-06 setup'},
+  {date:'2026-05-01', item:'Sea salt (Instant Ocean)',    type:'receive', qty:25,  notes:'Delivery from Petspares'},
+];
+
+let invSortKey = 'name', invSortDir = 1, editInvId = null, txnItemId = null;
+
+function invStatus(item) {
+  if (item.stock <= 0) return 'Out';
+  if (item.stock <= item.reorder) return 'Low';
+  return 'OK';
+}
+
+function invPct(item) {
+  if (item.reorder === 0) return 100;
+  return Math.min(100, Math.round((item.stock / (item.reorder * 2)) * 100));
+}
+
+function invBarColor(s) {
+  return s==='Out' ? '#c0392b' : s==='Low' ? '#b85c00' : '#1a6b3c';
+}
+
+function invBadgeClass(s) {
+  return s==='OK' ? 'badge-ok' : s==='Low' ? 'badge-low' : 'badge-out';
+}
+
+function invSort(key) {
+  if (invSortKey === key) invSortDir *= -1; else { invSortKey = key; invSortDir = 1; }
+  invRender();
+}
+
+function invRender() {
+  const search  = (document.getElementById('inv-search') || {value:''}).value.toLowerCase();
+  const catF    = (document.getElementById('inv-cat') || {value:'all'}).value;
+  const statusF = (document.getElementById('inv-status') || {value:'all'}).value;
+
+  let filtered = invItems.filter(i => {
+    const s = invStatus(i);
+    return (!search || i.name.toLowerCase().includes(search) || i.category.toLowerCase().includes(search) || (i.supplier||'').toLowerCase().includes(search))
+      && (catF === 'all' || i.category === catF)
+      && (statusF === 'all' || s === statusF);
+  });
+
+  filtered.sort((a,b) => {
+    let av = a[invSortKey], bv = b[invSortKey];
+    if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+    return av < bv ? -invSortDir : av > bv ? invSortDir : 0;
+  });
+
+  const ok  = invItems.filter(i => invStatus(i)==='OK').length;
+  const low = invItems.filter(i => invStatus(i)==='Low').length;
+  const out = invItems.filter(i => invStatus(i)==='Out').length;
+
+  const metricsEl = document.getElementById('inv-metrics');
+  if (metricsEl) metricsEl.innerHTML = `
+    <div class="metric-card"><div class="label">Total items</div><div class="value">${invItems.length}</div></div>
+    <div class="metric-card"><div class="label">In stock</div><div class="value" style="color:var(--accent)">${ok}</div></div>
+    <div class="metric-card warn"><div class="label">Low stock</div><div class="value">${low}</div></div>
+    <div class="metric-card danger"><div class="label">Out of stock</div><div class="value">${out}</div></div>
+  `;
+
+  const alerts = invItems.filter(i => invStatus(i) !== 'OK');
+  const alertEl = document.getElementById('inv-alerts');
+  if (alertEl) {
+    if (alerts.length) {
+      const pills = alerts.map(a => `<span class="alert-pill" onclick="document.getElementById('row-${a.id}').scrollIntoView({behavior:'smooth',block:'center'})">${a.name} (${invStatus(a)==='Out'?'out':'low'})</span>`).join(' ');
+      alertEl.innerHTML = `<div class="alert-bar ${out>0?'danger':'warn'}"><strong>Reorder alerts:</strong> ${pills}</div>`;
+    } else {
+      alertEl.innerHTML = '';
+    }
+  }
+
+  const countEl = document.getElementById('inv-count');
+  if (countEl) countEl.textContent = filtered.length + ' items';
+
+  const tbody = document.getElementById('inv-body');
+  if (tbody) tbody.innerHTML = filtered.map(item => {
+    const s = invStatus(item);
+    const p = invPct(item);
+    const bc = invBarColor(s);
+    return `<tr id="row-${item.id}">
+      <td title="${item.name}">${item.name}</td>
+      <td>${item.category}</td>
+      <td>${item.unit}</td>
+      <td>${item.stock}</td>
+      <td>${item.reorder}</td>
+      <td><div class="stock-bar"><div class="stock-bar-fill" style="width:${p}%;background:${bc};"></div></div></td>
+      <td>$${item.cost.toFixed(2)}</td>
+      <td><span class="badge ${invBadgeClass(s)}">${s}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="openTxnModal(${item.id})" style="margin-right:4px;">Log</button>
+        <button class="btn btn-sm" onclick="openEditModal(${item.id})">Edit</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const txnEl = document.getElementById('inv-txns');
+  if (txnEl) txnEl.innerHTML = invTxns.slice(0,12).map(t => {
+    const itm = invItems.find(i => i.name === t.item) || { unit:'' };
+    const isIn = t.type === 'receive';
+    return `<div class="txn-item">
+      <span class="txn-date">${t.date}</span>
+      <span class="txn-name">${t.item}</span>
+      <span class="${isIn?'txn-qty-in':'txn-qty-out'}">${isIn?'+':'-'}${t.qty} ${itm.unit}</span>
+      <span class="txn-note">${t.notes}</span>
+    </div>`;
+  }).join('');
+}
+
+function openItemModal(editItem) {
+  editInvId = editItem ? editItem.id : null;
+  document.getElementById('item-modal-title').textContent = editItem ? 'Edit item' : 'Add inventory item';
+  document.getElementById('im-name').value     = editItem ? editItem.name      : '';
+  document.getElementById('im-cat').value      = editItem ? editItem.category  : 'Live feed';
+  document.getElementById('im-unit').value     = editItem ? editItem.unit      : 'L';
+  document.getElementById('im-stock').value    = editItem ? editItem.stock     : '';
+  document.getElementById('im-reorder').value  = editItem ? editItem.reorder   : '';
+  document.getElementById('im-cost').value     = editItem ? editItem.cost      : '';
+  document.getElementById('im-supplier').value = editItem ? (editItem.supplier||'') : '';
+  document.getElementById('im-notes').value    = editItem ? (editItem.notes||'')    : '';
+  document.getElementById('item-modal').classList.add('open');
+}
+
+function closeItemModal() { document.getElementById('item-modal').classList.remove('open'); }
+
+function openEditModal(id) { openItemModal(invItems.find(i => i.id === id)); }
+
+function saveInvItem() {
+  const name = document.getElementById('im-name').value.trim();
+  if (!name) { alert('Please enter an item name.'); return; }
+  const obj = {
+    name, category: document.getElementById('im-cat').value,
+    unit:     document.getElementById('im-unit').value,
+    stock:    parseFloat(document.getElementById('im-stock').value)   || 0,
+    reorder:  parseFloat(document.getElementById('im-reorder').value) || 0,
+    cost:     parseFloat(document.getElementById('im-cost').value)    || 0,
+    supplier: document.getElementById('im-supplier').value.trim(),
+    notes:    document.getElementById('im-notes').value.trim(),
+  };
+  if (editInvId) {
+    const idx = invItems.findIndex(i => i.id === editInvId);
+    invItems[idx] = { ...invItems[idx], ...obj };
+  } else {
+    obj.id = Date.now();
+    invItems.push(obj);
+  }
+  closeItemModal();
+  invRender();
+}
+
+function openTxnModal(id) {
+  txnItemId = id;
+  const item = invItems.find(i => i.id === id);
+  document.getElementById('tm-name').value  = item.name;
+  document.getElementById('tm-qty').value   = '';
+  document.getElementById('tm-notes').value = '';
+  document.getElementById('tm-type').value  = 'use';
+  document.getElementById('txn-modal').classList.add('open');
+}
+
+function closeTxnModal() { document.getElementById('txn-modal').classList.remove('open'); }
+
+function saveTxn() {
+  const qty = parseFloat(document.getElementById('tm-qty').value) || 0;
+  if (!qty) { alert('Please enter a quantity.'); return; }
+  const type  = document.getElementById('tm-type').value;
+  const notes = document.getElementById('tm-notes').value.trim();
+  const item  = invItems.find(i => i.id === txnItemId);
+  if (type === 'use')     item.stock = Math.max(0, Math.round((item.stock - qty) * 100) / 100);
+  else if (type === 'receive') item.stock = Math.round((item.stock + qty) * 100) / 100;
+  else                    item.stock = Math.round(qty * 100) / 100;
+  const today = new Date().toISOString().split('T')[0];
+  invTxns.unshift({ date:today, item:item.name, type:type==='receive'?'receive':'use', qty, notes });
+  closeTxnModal();
+  invRender();
+}
+
+function invExportCSV() {
+  const rows = [['Name','Category','Unit','Stock','Reorder at','Cost/unit ($)','Supplier','Status']];
+  invItems.forEach(i => rows.push([i.name, i.category, i.unit, i.stock, i.reorder, i.cost.toFixed(2), i.supplier||'', invStatus(i)]));
+  const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'hatchery_inventory.csv';
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  COST ACCOUNTING
+// ══════════════════════════════════════════════════════════════════
+const COST_COLORS = ['#1a6b3c','#1a4a8a','#b85c00','#c0392b','#7a3b8a','#2d6b8a'];
+
+function initCost() {
+  if (document.getElementById('cost-feed-rows').children.length === 0) {
+    const feeds = [
+      { name:'Rotifers', qty:'2500', unit:'L',  cost:'1200' },
+      { name:'Artemia nauplii', qty:'450', unit:'g',  cost:'680'  },
+      { name:'Microalgae (Nanno)', qty:'80',   unit:'L',  cost:'320'  },
+      { name:'Enrichment (HUFA/Algamac)', qty:'12',  unit:'kg', cost:'540'  },
+    ];
+    feeds.forEach(f => addCostFeedRow(f));
+    const others = [
+      { name:'Chemicals & water treatment', cost:'420' },
+      { name:'Electricity (tanks + aeration)', cost:'610' },
+    ];
+    others.forEach(o => addCostOtherRow(o));
+  }
+}
+
+function addCostFeedRow(defaults) {
+  const div = document.createElement('div');
+  div.className = 'feed-input-row';
+  div.innerHTML = `
+    <div class="form-group" style="margin:0;"><label class="form-label">Feed type</label><input class="form-input fn" type="text" value="${(defaults&&defaults.name)||''}"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label">Qty used</label><input class="form-input fq" type="number" value="${(defaults&&defaults.qty)||''}"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label">Unit</label>
+      <select class="form-input fu">
+        <option ${(defaults&&defaults.unit)==='L'?'selected':''}>L</option>
+        <option ${(defaults&&defaults.unit)==='kg'?'selected':''}>kg</option>
+        <option ${(defaults&&defaults.unit)==='g'?'selected':''}>g</option>
+        <option ${(defaults&&defaults.unit)==='billion cells'?'selected':''}>billion cells</option>
+        <option ${(defaults&&defaults.unit)==='doses'?'selected':''}>doses</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;"><label class="form-label">Total cost ($)</label><input class="form-input fc" type="number" value="${(defaults&&defaults.cost)||''}"></div>
+    <div style="padding-top:20px;"><button class="rm-btn" onclick="this.closest('.feed-input-row').remove()">×</button></div>
+  `;
+  document.getElementById('cost-feed-rows').appendChild(div);
+}
+
+function addCostOtherRow(defaults) {
+  const div = document.createElement('div');
+  div.className = 'other-input-row';
+  div.innerHTML = `
+    <div class="form-group" style="margin:0;"><label class="form-label">Item</label><input class="form-input on" type="text" value="${(defaults&&defaults.name)||''}"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label">Cost ($)</label><input class="form-input oc" type="number" value="${(defaults&&defaults.cost)||''}"></div>
+    <div style="padding-top:20px;"><button class="rm-btn" onclick="this.closest('.other-input-row').remove()">×</button></div>
+  `;
+  document.getElementById('cost-other-rows').appendChild(div);
+}
+
+function fmt$(n) { return '$' + n.toLocaleString('en-AU', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtN(n) { return n.toLocaleString('en-AU'); }
+
+function calcCost() {
+  const batchName = document.getElementById('c-batch').value || 'Unnamed run';
+  const species   = document.getElementById('c-species').value || '—';
+  const days      = parseInt(document.getElementById('c-days').value) || 0;
+  const initial   = parseFloat(document.getElementById('c-init').value) || 0;
+  const final     = parseFloat(document.getElementById('c-final').value) || 0;
+  const survival  = initial > 0 ? Math.round((final / initial) * 100) : 0;
+
+  const feedRows = document.querySelectorAll('#cost-feed-rows .feed-input-row');
+  const feeds = [];
+  let feedTotal = 0;
+  feedRows.forEach(r => {
+    const name = r.querySelector('.fn').value;
+    const qty  = parseFloat(r.querySelector('.fq').value) || 0;
+    const unit = r.querySelector('.fu').value;
+    const cost = parseFloat(r.querySelector('.fc').value) || 0;
+    if (name && cost > 0) { feeds.push({name, qty, unit, cost}); feedTotal += cost; }
+  });
+
+  const hrs         = parseFloat(document.getElementById('c-hrs').value) || 0;
+  const rate        = parseFloat(document.getElementById('c-rate').value) || 0;
+  const labourTotal = Math.round(hrs * rate * 100) / 100;
+
+  const otherRows = document.querySelectorAll('#cost-other-rows .other-input-row');
+  const others = [];
+  let otherTotal = 0;
+  otherRows.forEach(r => {
+    const n = r.querySelector('.on').value;
+    const c = parseFloat(r.querySelector('.oc').value) || 0;
+    if (n && c > 0) { others.push({name:n, cost:c}); otherTotal += c; }
+  });
+
+  const grand        = feedTotal + labourTotal + otherTotal;
+  const costPerFish  = final > 0 ? grand / final : 0;
+  const costPer1k    = costPerFish * 1000;
+
+  const metricsEl = document.getElementById('cost-summary-metrics');
+  metricsEl.innerHTML = `
+    <div class="metric-card accent"><div class="label">Total run cost</div><div class="value">${fmt$(grand)}</div><div class="sub">${days} day run</div></div>
+    <div class="metric-card"><div class="label">Cost per fish</div><div class="value">${fmt$(costPerFish)}</div><div class="sub">per individual out</div></div>
+    <div class="metric-card"><div class="label">Cost per 1,000</div><div class="value">${fmt$(costPer1k)}</div></div>
+    <div class="metric-card"><div class="label">Survival</div><div class="value">${survival}%</div><div class="sub">${fmtN(final)} of ${fmtN(initial)}</div></div>
+  `;
+
+  const cats = [
+    { label:'Live feed & nutrition', total:feedTotal,   color:COST_COLORS[0] },
+    { label:'Labour',                total:labourTotal, color:COST_COLORS[1] },
+    { label:'Consumables & other',   total:otherTotal,  color:COST_COLORS[2] },
+  ].filter(c => c.total > 0);
+
+  const maxCat = Math.max(...cats.map(c => c.total), 1);
+
+  const catHTML = cats.map(c => {
+    const pct = grand > 0 ? Math.round((c.total / grand) * 100) : 0;
+    return `<div class="cost-row">
+      <div class="cost-dot" style="background:${c.color};"></div>
+      <div class="cost-label" style="font-weight:600;">${c.label}</div>
+      <div class="cost-bar-track"><div class="cost-bar-fill" style="width:${Math.round((c.total/maxCat)*100)}%;background:${c.color};"></div></div>
+      <div class="cost-amount">${fmt$(c.total)}</div>
+      <div class="cost-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  const feedHTML = feeds.map((f, i) => {
+    const pct = grand > 0 ? Math.round((f.cost / grand) * 100) : 0;
+    const perFish = final > 0 ? (f.cost / final * 1000).toFixed(3) : '—';
+    return `<div class="cost-row">
+      <div class="cost-dot" style="background:${COST_COLORS[i % COST_COLORS.length]};"></div>
+      <div class="cost-label">${f.name} <span style="color:var(--text-3);font-size:12px;">(${fmtN(f.qty)} ${f.unit} · ${fmt$(f.cost/1000)}/1k larvae)</span></div>
+      <div class="cost-bar-track"><div class="cost-bar-fill" style="width:${feedTotal>0?Math.round((f.cost/feedTotal)*100):0}%;background:${COST_COLORS[i % COST_COLORS.length]};"></div></div>
+      <div class="cost-amount">${fmt$(f.cost)}</div>
+      <div class="cost-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  const labourHTML = `<div class="cost-row">
+    <div class="cost-dot" style="background:${COST_COLORS[1]};"></div>
+    <div class="cost-label">Labour <span style="color:var(--text-3);font-size:12px;">(${fmtN(hrs)} hrs × ${fmt$(rate)}/hr)</span></div>
+    <div class="cost-bar-track"><div class="cost-bar-fill" style="width:${grand>0?Math.round((labourTotal/grand)*100):0}%;background:${COST_COLORS[1]};"></div></div>
+    <div class="cost-amount">${fmt$(labourTotal)}</div>
+    <div class="cost-pct">${grand>0?Math.round((labourTotal/grand)*100):0}%</div>
+  </div>`;
+
+  const otherHTML = others.map((o, i) => {
+    const pct = grand > 0 ? Math.round((o.cost / grand) * 100) : 0;
+    return `<div class="cost-row">
+      <div class="cost-dot" style="background:${COST_COLORS[(i+4)%COST_COLORS.length]};"></div>
+      <div class="cost-label">${o.name}</div>
+      <div class="cost-bar-track"><div class="cost-bar-fill" style="width:${otherTotal>0?Math.round((o.cost/otherTotal)*100):0}%;background:${COST_COLORS[(i+4)%COST_COLORS.length]};"></div></div>
+      <div class="cost-amount">${fmt$(o.cost)}</div>
+      <div class="cost-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  const exportTxt = `Larval Run Cost Report\n======================\nBatch: ${batchName}\nSpecies: ${species}\nDuration: ${days} days\nSurvival: ${survival}% (${fmtN(initial)} → ${fmtN(final)})\n\nTotal run cost: ${fmt$(grand)}\nCost per fish: ${fmt$(costPerFish)}\nCost per 1,000: ${fmt$(costPer1k)}\n\nFeed & nutrition: ${fmt$(feedTotal)}\nLabour: ${fmt$(labourTotal)}\nOther: ${fmt$(otherTotal)}`;
+
+  document.getElementById('cost-report-body').innerHTML = `
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px;">${batchName} — ${species}</div>
+    <div style="font-size:12px;color:var(--text-3);margin-bottom:16px;">${days} days · Survival: ${survival}% (${fmtN(initial)} → ${fmtN(final)})</div>
+
+    <div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">By category</div>
+    ${catHTML}
+    <div class="cost-row" style="border-top:1px solid var(--border);margin-top:4px;">
+      <div class="cost-dot" style="background:transparent;"></div>
+      <div class="cost-label" style="font-weight:600;">Total</div>
+      <div class="cost-bar-track"></div>
+      <div class="cost-amount" style="font-size:15px;">${fmt$(grand)}</div>
+      <div class="cost-pct"></div>
+    </div>
+
+    ${feedHTML ? `<div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin:16px 0 8px;">Feed breakdown</div>${feedHTML}` : ''}
+    ${labourTotal ? `<div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin:16px 0 8px;">Labour & other</div>${labourHTML}${otherHTML}` : ''}
+
+    <div style="margin-top:16px;display:flex;gap:8px;">
+      <button class="btn" onclick="navigator.clipboard.writeText(\`${exportTxt.replace(/`/g,"'")}\`).then(()=>alert('Copied to clipboard!'))">Copy report text</button>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
